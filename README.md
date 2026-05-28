@@ -1,6 +1,6 @@
 # WSharing
 
-A lightweight LAN file-sharing app for Windows. Share any folder over WebDAV and mount it as a drive letter on other machines — no cloud, no account, just your local network.
+A fast, zero-config LAN file sharing app for Windows. Share any folder over SMB and mount it as a drive letter on other machines — no cloud, no account, no setup. Just plug in and play.
 
 ![Platform](https://img.shields.io/badge/platform-Windows-blue)
 ![C++](https://img.shields.io/badge/language-C%2B%2B20-informational)
@@ -10,11 +10,13 @@ A lightweight LAN file-sharing app for Windows. Share any folder over WebDAV and
 
 ## Features
 
-- **Host** — share any local folder over HTTP/WebDAV with one click
-- **Client** — mount a remote share as a Windows drive letter (e.g. `Z:`)
-- **Auto-discovery** — hosts announce themselves over UDP; clients see them instantly
-- **Fast transfers** — zero-copy file serving via `TransmitFile`, 4 MB socket buffers, HTTP keep-alive
-- **Custom drive label & icon** — set a display name and `.ico` shown in Explorer
+- **SMB file sharing** — uses native Windows network shares, the same protocol Explorer and Steam use
+- **Works with Steam** — mount the share as a drive letter and point Steam to it, games run like they're local
+- **One-click hosting** — select a folder, click Start, done
+- **Auto-discovery** — hosts broadcast over UDP, clients see them instantly, no IP typing needed
+- **Clean UAC** — one admin prompt at startup, nothing after that. No CMD windows, no PowerShell
+- **Performance tuned** — SMB signing disabled, large buffers, bandwidth throttling off out of the box
+- **Custom drive label & icon** — set the display name and `.ico` shown in Explorer
 - **System tray** — minimizes to tray, optional autostart with Windows
 - **Dark UI** — ImGui + DirectX 11, no external runtime required
 
@@ -25,8 +27,9 @@ A lightweight LAN file-sharing app for Windows. Share any folder over WebDAV and
 | | |
 |---|---|
 | OS | Windows 10 or later (64-bit) |
-| Service | Windows **WebClient** service (for drive mounting) |
 | Build | Visual Studio 2022 Build Tools, CMake ≥ 3.20, Git |
+
+> WSharing runs with admin rights (one UAC prompt on launch). This is required to create Windows network shares via the Win32 API.
 
 ---
 
@@ -48,17 +51,26 @@ CMake fetches [Dear ImGui v1.91.6](https://github.com/ocornut/imgui) automatical
 
 ### Hosting a folder
 
-1. Go to the **Host** tab
-2. Select a folder and set a share name
-3. Click **Start** — the share is now accessible on your LAN
+1. Launch WSharing — accept the UAC prompt (one time)
+2. Go to the **Host** tab
+3. Select a folder, set a share name
+4. Click **Freigabe starten**
+
+WSharing creates the SMB share, sets up the local user account, grants NTFS permissions and enables the firewall rule automatically.
 
 ### Connecting from another machine
 
-1. Go to the **Client** tab
-2. Discovered hosts appear automatically; select one
-3. Choose a drive letter and click **Connect**
+1. Launch WSharing on the client machine
+2. Go to the **Client** tab — discovered hosts appear automatically
+3. Select a host, choose a drive letter, click **Verbinden**
 
-The share mounts as a standard Windows network drive and opens in Explorer.
+The folder mounts as a standard Windows network drive. Open it in Explorer, add it to Steam as a library folder, or use it however you want.
+
+### Steam
+
+1. Connect and mount the share (e.g. as `Z:`)
+2. In Steam → Settings → Storage → Add Drive → select `Z:`
+3. Done — install and run games directly from the network share
 
 ---
 
@@ -67,26 +79,23 @@ The share mounts as a standard Windows network drive and opens in Explorer.
 ```
 src/
 ├── core/
-│   ├── webdav/
-│   │   ├── WebDavHandlers.cpp/h  # Request handlers (GET, PUT, PROPFIND, ...)
-│   │   ├── WebDavHttp.h          # HTTP parsing, URL codec, send helpers
-│   │   ├── WebDavServer.cpp/h    # TCP accept loop, connection dispatch
 │   ├── AppLog.h                  # Thread-safe in-app log
-│   ├── Config.cpp/h              # Persistent settings
+│   ├── Config.cpp/h              # Persistent settings (INI)
 │   ├── Discovery.cpp/h           # UDP host broadcasting & discovery
 │   ├── StringUtils.h             # UTF-8 / wide string helpers
 │   └── TrayIcon.cpp/h            # System tray integration
 ├── design/
 │   └── Colors.h                  # ImGui color palette
 ├── network/
-│   └── DriveMounter.cpp/h        # Drive mount/unmount via WNetAddConnection2
+│   ├── DriveMounter.cpp/h        # SMB drive mount/unmount via WNetAddConnection2
+│   └── SmbProtocol.cpp/h         # NetShareAdd/Del, user setup, perf tweaks
 ├── ui/
-│   ├── ClientPage.cpp            # Client tab UI
-│   ├── HostPage.cpp              # Host tab UI
-│   ├── LogPage.cpp               # Log tab UI
-│   ├── SettingsPage.cpp          # Settings tab UI
-│   ├── Sidebar.cpp               # Navigation sidebar
-│   └── Toast.cpp                 # Status toast notifications
+│   ├── ClientPage.cpp
+│   ├── HostPage.cpp
+│   ├── LogPage.cpp
+│   ├── SettingsPage.cpp
+│   ├── Sidebar.cpp
+│   └── Toast.cpp
 ├── window/
 │   └── DX11Window.cpp            # Win32 window + DirectX 11 swap chain
 ├── App.cpp/h                     # Application entry & orchestration

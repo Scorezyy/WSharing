@@ -7,29 +7,16 @@
 #include <windows.h>
 #include <winnetwk.h>
 #include <shlobj.h>
+#include <shellapi.h>
 #include <string>
-
-static void setRegistryDword(HKEY hive, const wchar_t* subkey,
-                              const wchar_t* name, DWORD value)
-{
-    HKEY key{};
-    if (RegCreateKeyExW(hive, subkey, 0, nullptr, 0,
-                        KEY_SET_VALUE, nullptr, &key, nullptr) == ERROR_SUCCESS) {
-        RegSetValueExW(key, name, 0, REG_DWORD,
-                       reinterpret_cast<const BYTE*>(&value), sizeof(value));
-        RegCloseKey(key);
-    }
-}
 
 static bool ensureServiceRunning(const wchar_t* serviceName)
 {
-    SC_HANDLE scm = OpenSCManagerW(nullptr, nullptr,
-                                   SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE);
+    SC_HANDLE scm = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CONNECT);
     if (!scm) return false;
 
     SC_HANDLE svc = OpenServiceW(scm, serviceName,
-                                  SERVICE_QUERY_STATUS | SERVICE_START |
-                                  SERVICE_STOP | SERVICE_CHANGE_CONFIG);
+                                  SERVICE_QUERY_STATUS | SERVICE_START);
     if (!svc) { CloseServiceHandle(scm); return false; }
 
     SERVICE_STATUS_PROCESS ssp{};
@@ -37,25 +24,15 @@ static bool ensureServiceRunning(const wchar_t* serviceName)
     QueryServiceStatusEx(svc, SC_STATUS_PROCESS_INFO,
                          reinterpret_cast<LPBYTE>(&ssp), sizeof(ssp), &needed);
 
-    // If already running, restart so registry changes (FileSizeLimitInBytes) take effect
-    if (ssp.dwCurrentState == SERVICE_RUNNING) {
-        ControlService(svc, SERVICE_CONTROL_STOP,
-                       reinterpret_cast<SERVICE_STATUS*>(&ssp));
-        for (int i = 0; i < 50; ++i) {
+    bool started = (ssp.dwCurrentState == SERVICE_RUNNING);
+    if (!started) {
+        StartServiceW(svc, 0, nullptr);
+        for (int i = 0; i < 50 && !started; ++i) {
             Sleep(100);
             QueryServiceStatusEx(svc, SC_STATUS_PROCESS_INFO,
                                  reinterpret_cast<LPBYTE>(&ssp), sizeof(ssp), &needed);
-            if (ssp.dwCurrentState == SERVICE_STOPPED) break;
+            started = (ssp.dwCurrentState == SERVICE_RUNNING);
         }
-    }
-
-    StartServiceW(svc, 0, nullptr);
-    bool started = false;
-    for (int i = 0; i < 50 && !started; ++i) {
-        Sleep(100);
-        QueryServiceStatusEx(svc, SC_STATUS_PROCESS_INFO,
-                             reinterpret_cast<LPBYTE>(&ssp), sizeof(ssp), &needed);
-        started = (ssp.dwCurrentState == SERVICE_RUNNING);
     }
 
     CloseServiceHandle(svc);
@@ -63,19 +40,70 @@ static bool ensureServiceRunning(const wchar_t* serviceName)
     return started;
 }
 
+// Returns true if the DWORD value already has the expected value.
+static bool registryDwordOk(HKEY hive, const wchar_t* subkey,
+                             const wchar_t* name, DWORD expected)
+{
+    HKEY key{};
+    if (RegOpenKeyExW(hive, subkey, 0, KEY_QUERY_VALUE, &key) != ERROR_SUCCESS)
+        return false;
+    DWORD val{}, sz = sizeof(val), type{};
+    bool ok = RegQueryValueExW(key, name, nullptr, &type,
+                               reinterpret_cast<BYTE*>(&val), &sz) == ERROR_SUCCESS
+              && type == REG_DWORD && val == expected;
+    RegCloseKey(key);
+    return ok;
+}
+
 bool DriveMounter::prepareSystem()
 {
-    setRegistryDword(
-        HKEY_LOCAL_MACHINE,
+    // Check if HKLM values already correct.
+    bool basicOk  = registryDwordOk(HKEY_LOCAL_MACHINE,
         L"SYSTEM\\CurrentControlSet\\Services\\WebClient\\Parameters",
-        L"BasicAuthLevel",
-        2);
+        L"BasicAuthLevel", 2);
+    bool sizeOk   = registryDwordOk(HKEY_LOCAL_MACHINE,
+        L"SYSTEM\\CurrentControlSet\\Services\\WebClient\\Parameters",
+        L"FileSizeLimitInBytes", 0xFFFFFFFF);
+    bool linkedOk = registryDwordOk(HKEY_LOCAL_MACHINE,
+        L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System",
+        L"EnableLinkedConnections", 1);
+    // Track whether the service was ever restarted with the correct values.
+    bool restartedOk = registryDwordOk(HKEY_CURRENT_USER,
+        L"Software\\WSharing",
+        L"WebClientRestarted", 1);
 
-    setRegistryDword(
-        HKEY_LOCAL_MACHINE,
-        L"SYSTEM\\CurrentControlSet\\Services\\WebClient\\Parameters",
-        L"FileSizeLimitInBytes",
-        0xFFFFFFFF);
+    if (!basicOk || !sizeOk || !linkedOk || !restartedOk) {
+        // Set registry values elevated, then force-restart WebClient so it picks them up.
+        const wchar_t* params =
+            L"-NoProfile -NonInteractive -Command \""
+            L"reg add 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\WebClient\\Parameters' /v BasicAuthLevel /t REG_DWORD /d 2 /f | Out-Null;"
+            L"reg add 'HKLM\\SYSTEM\\CurrentControlSet\\Services\\WebClient\\Parameters' /v FileSizeLimitInBytes /t REG_DWORD /d 4294967295 /f | Out-Null;"
+            L"reg add 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System' /v EnableLinkedConnections /t REG_DWORD /d 1 /f | Out-Null;"
+            L"Restart-Service WebClient -Force"
+            L"\"";
+
+        SHELLEXECUTEINFOW sei{};
+        sei.cbSize       = sizeof(sei);
+        sei.fMask        = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_UNICODE;
+        sei.lpVerb       = L"runas";
+        sei.lpFile       = L"powershell.exe";
+        sei.lpParameters = params;
+        sei.nShow        = SW_HIDE;
+        if (ShellExecuteExW(&sei) && sei.hProcess) {
+            WaitForSingleObject(sei.hProcess, 20000);
+            CloseHandle(sei.hProcess);
+        }
+
+        // Mark that we've done the restart so we don't repeat it next time.
+        HKEY key{};
+        if (RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\WSharing", 0, nullptr, 0,
+                            KEY_SET_VALUE, nullptr, &key, nullptr) == ERROR_SUCCESS) {
+            DWORD one = 1;
+            RegSetValueExW(key, L"WebClientRestarted", 0, REG_DWORD,
+                           reinterpret_cast<const BYTE*>(&one), sizeof(one));
+            RegCloseKey(key);
+        }
+    } 
 
     return ensureServiceRunning(L"WebClient");
 }
@@ -215,4 +243,98 @@ void DriveMounter::clearIcon(wchar_t letter)
     keyPath += letter;
 
     RegDeleteTreeW(HKEY_CURRENT_USER, keyPath.c_str());
+}
+
+bool DriveMounter::mountSmb(const std::string& host, const std::wstring& shareName,
+                             wchar_t driveLetter,
+                             const std::wstring& label,
+                             const std::wstring& iconPath)
+{
+    if (isMounted(driveLetter)) unmount(driveLetter);
+
+    std::wstring uncPath = L"\\\\";
+    for (char c : host) uncPath += static_cast<wchar_t>(c);
+    uncPath += L"\\" + shareName;
+
+    wchar_t localDrive[3]{driveLetter, L':', L'\0'};
+
+    NETRESOURCEW nr{};
+    nr.dwType       = RESOURCETYPE_DISK;
+    nr.lpLocalName  = localDrive;
+    nr.lpRemoteName = const_cast<LPWSTR>(uncPath.c_str());
+    nr.lpProvider   = nullptr;
+
+    static constexpr wchar_t kSmbUser[] = L"WSharingUser";
+    static constexpr wchar_t kSmbPass[] = L"Ws!7kL2#mP9xQ@4z";
+
+    // Client performance tuning
+    {
+        HKEY hk;
+        const wchar_t* kWkst = L"SYSTEM\\CurrentControlSet\\Services\\LanmanWorkstation\\Parameters";
+        if (RegCreateKeyExW(HKEY_LOCAL_MACHINE, kWkst, 0, nullptr,
+                            REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, nullptr, &hk, nullptr) == ERROR_SUCCESS) {
+            auto setDW = [&](const wchar_t* n, DWORD v) {
+                RegSetValueExW(hk, n, 0, REG_DWORD,
+                               reinterpret_cast<const BYTE*>(&v), sizeof(v));
+            };
+            setDW(L"RequireSecuritySignature",      0);
+            setDW(L"EnableSecuritySignature",        0);
+            setDW(L"DisableBandwidthThrottling",     1);
+            setDW(L"DisableLargeMtu",                0); // keep large MTU enabled
+            setDW(L"FileInfoCacheEntriesMax",        0); // disable stale metadata cache
+            setDW(L"DirectoryCacheEntriesMax",       0);
+            setDW(L"FileNotFoundCacheEntriesMax",    0);
+            RegCloseKey(hk);
+        }
+    }
+
+    // Remove any stale remembered connection for this drive letter
+    WNetCancelConnection2W(localDrive, CONNECT_UPDATE_PROFILE, TRUE);
+
+    // Connect using the hidden WSharing account created on the host
+    DWORD res = WNetAddConnection2W(&nr, kSmbPass, kSmbUser, CONNECT_UPDATE_PROFILE);
+    if (res != NO_ERROR && res != ERROR_ALREADY_ASSIGNED) {
+        return false;
+    }
+
+    if (!label.empty())    applyLabelSmb(host, shareName, label);
+    if (!iconPath.empty()) applyIcon(driveLetter, iconPath);
+
+    SHChangeNotify(SHCNE_DRIVEADD, SHCNF_PATH, localDrive, nullptr);
+    return true;
+}
+
+void DriveMounter::applyLabelSmb(const std::string& host,
+                                  const std::wstring& shareName,
+                                  const std::wstring& label)
+{
+    // MountPoints2 key for SMB: ##host#shareName
+    std::wstring keyPath = L"Software\\Microsoft\\Windows\\CurrentVersion"
+                           L"\\Explorer\\MountPoints2\\##";
+    for (char c : host) keyPath += static_cast<wchar_t>(c);
+    keyPath += L"#" + shareName;
+
+    HKEY key{};
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, keyPath.c_str(), 0, nullptr, 0,
+                        KEY_SET_VALUE, nullptr, &key, nullptr) == ERROR_SUCCESS) {
+        RegSetValueExW(key, L"_LabelFromReg", 0, REG_SZ,
+            reinterpret_cast<const BYTE*>(label.c_str()),
+            static_cast<DWORD>((label.size() + 1) * sizeof(wchar_t)));
+        RegCloseKey(key);
+    }
+}
+
+void DriveMounter::clearLabelSmb(const std::string& host,
+                                  const std::wstring& shareName)
+{
+    std::wstring keyPath = L"Software\\Microsoft\\Windows\\CurrentVersion"
+                           L"\\Explorer\\MountPoints2\\##";
+    for (char c : host) keyPath += static_cast<wchar_t>(c);
+    keyPath += L"#" + shareName;
+
+    HKEY key{};
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, keyPath.c_str(), 0, KEY_SET_VALUE, &key) == ERROR_SUCCESS) {
+        RegDeleteValueW(key, L"_LabelFromReg");
+        RegCloseKey(key);
+    }
 }

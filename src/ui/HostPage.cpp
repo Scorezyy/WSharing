@@ -40,15 +40,9 @@ void App::drawHostPage()
     ImGui::SetNextItemWidth(fw - 32.f);
     ImGui::InputText("##name", m_nameBuf, sizeof(m_nameBuf));
 
-    ImGui::PushStyleColor(ImGuiCol_Text, Colors::MUTED);
-    ImGui::Text("Port");
-    ImGui::PopStyleColor();
-    ImGui::SetNextItemWidth(120.f);
-    ImGui::InputText("##port", m_portBuf, sizeof(m_portBuf), ImGuiInputTextFlags_CharsDecimal);
-
     ImGui::Spacing();
 
-    bool running = m_server.isRunning();
+    bool running = m_smb.isRunning();
     if (running) {
         ImGui::PushStyleColor(ImGuiCol_Button,        Colors::DANGER);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, {0.95f, 0.2f, 0.17f, 1.f});
@@ -57,7 +51,7 @@ void App::drawHostPage()
         ImGui::SameLine();
         ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 8.f);
         ImGui::PushStyleColor(ImGuiCol_Text, Colors::SUCCESS);
-        ImGui::Text("  Aktiv auf Port %s", m_portBuf);
+        ImGui::Text("  Freigabe aktiv");
         ImGui::PopStyleColor();
     } else {
         ImGui::PushStyleColor(ImGuiCol_Button,        Colors::ACCENT);

@@ -57,7 +57,6 @@ void Config::load()
 
     hostEnabled    = ini_bool(m, "hostEnabled",    false);
     sharedFolder   = utf8_to_wide(ini_str(m, "sharedFolder"));
-    hostPort       = static_cast<uint16_t>(ini_int(m, "hostPort", 45679));
     shareName      = utf8_to_wide(ini_str(m, "shareName", "WSharing"));
 
     clientEnabled  = ini_bool(m, "clientEnabled",  false);
@@ -77,7 +76,6 @@ void Config::save() const
     file << "[WSharing]\n"
          << "hostEnabled="    << (hostEnabled    ? 1 : 0) << "\n"
          << "sharedFolder="   << wide_to_utf8(sharedFolder) << "\n"
-         << "hostPort="       << hostPort << "\n"
          << "shareName="      << wide_to_utf8(shareName) << "\n"
          << "clientEnabled="  << (clientEnabled  ? 1 : 0) << "\n"
          << "driveLetter="    << static_cast<char>(driveLetter) << "\n"

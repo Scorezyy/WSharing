@@ -7,7 +7,6 @@ class Config
 public:
     bool         hostEnabled   { false };
     std::wstring sharedFolder;
-    uint16_t     hostPort      { 45679 };
     std::wstring shareName     { L"WSharing" };
 
     bool         clientEnabled  { false };

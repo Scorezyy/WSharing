@@ -39,11 +39,15 @@ set(APP_SOURCES
     src/core/Config.cpp
     src/core/Discovery.cpp
     src/network/DriveMounter.cpp
-    src/core/webdav/WebDavServer.cpp src/core/webdav/WebDavHandlers.cpp
+    src/network/SmbProtocol.cpp
     src/core/TrayIcon.cpp
+    src/version.rc
 )
 
 add_executable(WSharing WIN32 ${APP_SOURCES} ${IMGUI_SOURCES})
+
+set_target_properties(WSharing PROPERTIES
+    LINK_FLAGS "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\"")
 
 target_include_directories(WSharing PRIVATE
     src/
@@ -63,6 +67,7 @@ target_link_libraries(WSharing PRIVATE
     shlwapi
     advapi32
     iphlpapi
+    netapi32
 )
 
 target_compile_definitions(WSharing PRIVATE

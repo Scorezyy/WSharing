@@ -7,12 +7,14 @@
 #include <string>
 #include <vector>
 #include <chrono>
+#include <thread>
+#include <atomic>
 
 #include "core/Config.h"
-#include "core/webdav/WebDavServer.h"
 #include "core/TrayIcon.h"
 #include "core/Discovery.h"
 #include "network/DriveMounter.h"
+#include "network/SmbProtocol.h"
 
 class App
 {
@@ -42,10 +44,9 @@ private:
     int  m_page{0};           // 0=Host 1=Client 2=Settings
     char m_folderBuf[512]{};
     char m_nameBuf[128]{};
-    char m_portBuf[8]{"45679"};
     char m_dlBuf[4]{"Z"};
-    char m_driveNameBuf[128]{"WSharing"};  // custom Explorer display name
-    char m_driveIconBuf[512]{};            // path to .ico for Explorer icon
+    char m_driveNameBuf[128]{"WSharing"};
+    char m_driveIconBuf[512]{};
     int  m_selHost{-1};
     std::string m_statusMsg;
     bool m_statusOk{true};
@@ -78,14 +79,18 @@ private:
     void                     enumAdapters();
 
     // Core systems
-    Config       m_cfg;
-    WebDavServer m_server;
-    Discovery    m_disc;
-    TrayIcon     m_tray;
+    Config      m_cfg;
+    SmbProtocol m_smb;
+    Discovery   m_disc;
+    TrayIcon    m_tray;
 
     bool        m_connected{false};
     std::string m_connectedTo;
-    bool        m_logAutoScroll{true};  // auto-scroll log to bottom
+    bool        m_logAutoScroll{true};
+
+    // SMB host setup runs on a background thread to avoid UI freeze
+    std::thread      m_smbThread;
+    std::atomic<int> m_smbState{0}; // 0=idle 1=busy 2=ok 3=fail
 
     static App* s_inst;
 };

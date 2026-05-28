@@ -14,7 +14,7 @@ void App::drawSidebar()
     ImGui::PopStyleColor();
 
     ImGui::SetCursorPos({16.f, 44.f});
-    if (m_server.isRunning()) {
+    if (m_smb.isRunning()) {
         ImGui::PushStyleColor(ImGuiCol_Text, Colors::SUCCESS);
         ImGui::Text("  Hosting aktiv");
     } else {

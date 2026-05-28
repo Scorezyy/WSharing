@@ -1,4 +1,4 @@
-#include "../App.h"
+﻿#include "../App.h"
 #include <imgui.h>
 #include "../design/Colors.h"
 
@@ -80,7 +80,6 @@ void App::drawSettingsPage()
 
     ImGui::Separator();
 
-    // --- Drive icon ---
     ImGui::PushStyleColor(ImGuiCol_Text, Colors::MUTED);
     ImGui::Text("Laufwerk-Icon (.ico)");
     ImGui::PopStyleColor();
@@ -105,3 +104,4 @@ void App::drawSettingsPage()
     ImGui::PopStyleVar(2);
     ImGui::PopStyleColor();
 }
+

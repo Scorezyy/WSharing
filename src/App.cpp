@@ -22,7 +22,6 @@ bool App::init(HINSTANCE hInstance, bool startMinimized)
         std::string(m_cfg.sharedFolder.begin(), m_cfg.sharedFolder.end()).c_str());
     snprintf(m_nameBuf,   sizeof(m_nameBuf),   "%s",
         std::string(m_cfg.shareName.begin(), m_cfg.shareName.end()).c_str());
-    snprintf(m_portBuf,   sizeof(m_portBuf),   "%d", m_cfg.hostPort);
     m_dlBuf[0] = (char)m_cfg.driveLetter;
     m_dlBuf[1] = '\0';
 
@@ -79,8 +78,8 @@ void App::run()
     m_disc.startListening(iface);
 
     if (m_cfg.hostEnabled && !m_cfg.sharedFolder.empty()) {
-        if (m_server.start(m_cfg.sharedFolder, m_cfg.hostPort))
-            m_disc.startBroadcasting(m_cfg.shareName, m_cfg.hostPort, iface);
+        if (m_smb.start(m_cfg.sharedFolder, m_cfg.shareName))
+            m_disc.startBroadcasting(m_cfg.shareName, 0, iface);
         else
             m_cfg.hostEnabled = false;
     }
@@ -92,7 +91,25 @@ void App::run()
             DispatchMessageW(&msg);
             if (msg.message == WM_QUIT) goto done;
         }
-        if (m_visible) renderFrame();
+        if (m_visible) {
+            // Poll SMB background thread result
+            int smbSt = m_smbState.load();
+            if (smbSt == 2 || smbSt == 3) {
+                m_smbState.store(0);
+                if (smbSt == 2) {
+                    m_cfg.hostEnabled = true;
+                    m_disc.startBroadcasting(m_cfg.shareName, 0, m_cfg.networkInterface);
+                    AppLog::get().add(LogEntry::Kind::Info, "Host gestartet – " + std::string(m_nameBuf));
+                    setStatus(true, "Freigabe aktiv.");
+                } else {
+                    m_cfg.hostEnabled = false;
+                    AppLog::get().add(LogEntry::Kind::Error, "Host-Start fehlgeschlagen.");
+                    setStatus(false, "Freigabe konnte nicht gestartet werden.");
+                }
+                m_cfg.save();
+            }
+            renderFrame();
+        }
         else           Sleep(16);
     }
 
@@ -101,9 +118,10 @@ done:
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();
 
-    m_server.stop();
+    m_smb.stop();
     m_disc.stopBroadcasting();
     m_disc.stopListening();
+    if (m_smbThread.joinable()) m_smbThread.join();
     if (m_connected) DriveMounter::unmount(m_cfg.driveLetter);
 
     cleanupDevice();
@@ -143,43 +161,35 @@ static std::wstring utf8ToWide(const char* s)
 
 void App::cmdStartHost()
 {
-    m_server.stop();
+    m_smb.stop();
     m_disc.stopBroadcasting();
 
     std::wstring folder = utf8ToWide(m_folderBuf);
     std::wstring name   = utf8ToWide(m_nameBuf);
-    int          port   = atoi(m_portBuf);
 
     if (folder.empty()) { setStatus(false, "Bitte zuerst einen Ordner waehlen."); return; }
 
     m_cfg.sharedFolder = folder;
     m_cfg.shareName    = name;
-    m_cfg.hostPort     = (uint16_t)port;
 
-    if (m_server.start(folder, m_cfg.hostPort)) {
-        m_cfg.hostEnabled = true;
-        m_disc.startBroadcasting(m_cfg.shareName, m_cfg.hostPort, m_cfg.networkInterface);
-        AppLog::get().add(LogEntry::Kind::Info,
-            "Host gestartet – Port " + std::to_string(port) +
-            "  Freigabe: " + std::string(m_nameBuf));
-        setStatus(true, "Freigabe aktiv auf Port " + std::to_string(port));
-    } else {
-        m_cfg.hostEnabled = false;
-        AppLog::get().add(LogEntry::Kind::Error,
-            "Host-Start fehlgeschlagen – Port " + std::to_string(port) + " belegt");
-        setStatus(false, "Port " + std::to_string(port) + " ist bereits belegt.");
-    }
-    m_cfg.save();
+    if (m_smbState.load() == 1) return;
+    m_smbState.store(1);
+    setStatus(true, "Freigabe wird eingerichtet...");
+    if (m_smbThread.joinable()) m_smbThread.join();
+    m_smbThread = std::thread([this, folder, name]() {
+        bool ok = m_smb.start(folder, name);
+        m_smbState.store(ok ? 2 : 3);
+    });
 }
 
 void App::cmdStopHost()
 {
-    m_server.stop();
+    m_smb.stop();
     m_disc.stopBroadcasting();
     m_cfg.hostEnabled = false;
     m_cfg.save();
     AppLog::get().add(LogEntry::Kind::Info, "Host gestoppt.");
-    setStatus(true, "Server gestoppt.");
+    setStatus(true, "Freigabe gestoppt.");
 }
 
 void App::cmdBrowseFolder()
@@ -211,19 +221,21 @@ void App::cmdConnect()
     m_cfg.driveIconPath   = utf8ToWide(m_driveIconBuf);
 
     auto& h = hosts[m_selHost];
-    if (DriveMounter::mount(h.ip, h.port, dl, h.shareName,
-                            m_cfg.customDriveName, m_cfg.driveIconPath)) {
+    bool ok = DriveMounter::mountSmb(h.ip, h.shareName, dl,
+                                      m_cfg.customDriveName, m_cfg.driveIconPath);
+
+    if (ok) {
         m_connected   = true;
         m_connectedTo = std::string(h.name.begin(), h.name.end());
         m_cfg.clientEnabled = true;
         AppLog::get().add(LogEntry::Kind::Connect,
-            "Verbunden mit " + m_connectedTo + " (" + h.ip + ":" + std::to_string(h.port) +
-            ")  ->  " + std::string(1, (char)dl) + ":");
+            "Verbunden mit " + m_connectedTo + " (" + h.ip + ")  ->  " +
+            std::string(1, (char)dl) + ":");
         setStatus(true, "Verbunden mit " + m_connectedTo);
     } else {
         AppLog::get().add(LogEntry::Kind::Error,
-            "Verbindung fehlgeschlagen: " + h.ip + ":" + std::to_string(h.port));
-        setStatus(false, "Verbindung fehlgeschlagen. WebClient-Dienst aktiv?");
+            "Verbindung fehlgeschlagen: " + h.ip);
+        setStatus(false, "SMB-Verbindung fehlgeschlagen.");
     }
     m_cfg.save();
 }
