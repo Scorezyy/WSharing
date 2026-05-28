@@ -33,7 +33,7 @@ A lightweight LAN file-sharing app for Windows. Share any folder over WebDAV and
 ## Build
 
 ```bat
-git clone https://github.com/your-username/WSharing.git
+git clone https://github.com/Scorezyy/WSharing.git
 cd WSharing
 build.bat
 ```
