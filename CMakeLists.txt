@@ -38,10 +38,12 @@ set(APP_SOURCES
     src/ui/Toast.cpp
     src/core/Config.cpp
     src/core/Discovery.cpp
+    src/core/Lang.cpp
     src/network/DriveMounter.cpp
     src/network/SmbProtocol.cpp
     src/core/TrayIcon.cpp
     src/version.rc
+    src/lang.rc
 )
 
 add_executable(WSharing WIN32 ${APP_SOURCES} ${IMGUI_SOURCES})
@@ -80,3 +82,10 @@ target_compile_definitions(WSharing PRIVATE
 )
 
 target_compile_options(WSharing PRIVATE /W3 /WX-)
+
+add_custom_command(TARGET WSharing POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/languages"
+        "$<TARGET_FILE_DIR:WSharing>/languages"
+    COMMENT "Copying language files"
+)

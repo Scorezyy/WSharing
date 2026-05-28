@@ -54,7 +54,7 @@ CMake fetches [Dear ImGui v1.91.6](https://github.com/ocornut/imgui) automatical
 1. Launch WSharing — accept the UAC prompt (one time)
 2. Go to the **Host** tab
 3. Select a folder, set a share name
-4. Click **Freigabe starten**
+4. Click **Start Sharing**
 
 WSharing creates the SMB share, sets up the local user account, grants NTFS permissions and enables the firewall rule automatically.
 
@@ -62,7 +62,7 @@ WSharing creates the SMB share, sets up the local user account, grants NTFS perm
 
 1. Launch WSharing on the client machine
 2. Go to the **Client** tab — discovered hosts appear automatically
-3. Select a host, choose a drive letter, click **Verbinden**
+3. Select a host, choose a drive letter, click **Connect**
 
 The folder mounts as a standard Windows network drive. Open it in Explorer, add it to Steam as a library folder, or use it however you want.
 
@@ -101,6 +101,28 @@ src/
 ├── App.cpp/h                     # Application entry & orchestration
 └── main.cpp
 ```
+
+---
+
+## Custom Languages
+
+WSharing ships with German and English built-in. On first launch they are extracted to:
+
+```
+%APPDATA%\WSharing\languages\
+```
+
+To add your own language, drop a `.json` file in that folder. Use the same keys as `german.json` or `english.json`. The `langName` key controls what appears in the language dropdown:
+
+```json
+{
+    "langName": "Français",
+    "hostingActive": "  Hébergement actif",
+    ...
+}
+```
+
+WSharing will detect it automatically on the next launch.
 
 ---
 

@@ -17,6 +17,8 @@ App::~App() { s_inst = nullptr; }
 bool App::init(HINSTANCE hInstance, bool startMinimized)
 {
     m_cfg.load();
+    Lang::instance().init();
+    Lang::instance().load(m_cfg.language);
 
     snprintf(m_folderBuf, sizeof(m_folderBuf), "%s",
         std::string(m_cfg.sharedFolder.begin(), m_cfg.sharedFolder.end()).c_str());
@@ -99,12 +101,12 @@ void App::run()
                 if (smbSt == 2) {
                     m_cfg.hostEnabled = true;
                     m_disc.startBroadcasting(m_cfg.shareName, 0, m_cfg.networkInterface);
-                    AppLog::get().add(LogEntry::Kind::Info, "Host gestartet – " + std::string(m_nameBuf));
-                    setStatus(true, "Freigabe aktiv.");
+                    AppLog::get().add(LogEntry::Kind::Info, S().hostStarted + std::string(m_nameBuf));
+                    setStatus(true, S().sharingActive);
                 } else {
                     m_cfg.hostEnabled = false;
-                    AppLog::get().add(LogEntry::Kind::Error, "Host-Start fehlgeschlagen.");
-                    setStatus(false, "Freigabe konnte nicht gestartet werden.");
+                    AppLog::get().add(LogEntry::Kind::Error, S().hostStartFailed);
+                    setStatus(false, S().shareStartFailed);
                 }
                 m_cfg.save();
             }
@@ -167,14 +169,14 @@ void App::cmdStartHost()
     std::wstring folder = utf8ToWide(m_folderBuf);
     std::wstring name   = utf8ToWide(m_nameBuf);
 
-    if (folder.empty()) { setStatus(false, "Bitte zuerst einen Ordner waehlen."); return; }
+    if (folder.empty()) { setStatus(false, S().selectFolderFirst); return; }
 
     m_cfg.sharedFolder = folder;
     m_cfg.shareName    = name;
 
     if (m_smbState.load() == 1) return;
     m_smbState.store(1);
-    setStatus(true, "Freigabe wird eingerichtet...");
+    setStatus(true, S().settingUpShare);
     if (m_smbThread.joinable()) m_smbThread.join();
     m_smbThread = std::thread([this, folder, name]() {
         bool ok = m_smb.start(folder, name);
@@ -188,8 +190,8 @@ void App::cmdStopHost()
     m_disc.stopBroadcasting();
     m_cfg.hostEnabled = false;
     m_cfg.save();
-    AppLog::get().add(LogEntry::Kind::Info, "Host gestoppt.");
-    setStatus(true, "Freigabe gestoppt.");
+    AppLog::get().add(LogEntry::Kind::Info, S().hostStopped);
+    setStatus(true, S().shareStopped);
 }
 
 void App::cmdBrowseFolder()
@@ -229,13 +231,13 @@ void App::cmdConnect()
         m_connectedTo = std::string(h.name.begin(), h.name.end());
         m_cfg.clientEnabled = true;
         AppLog::get().add(LogEntry::Kind::Connect,
-            "Verbunden mit " + m_connectedTo + " (" + h.ip + ")  ->  " +
+            S().connectedToPrefix + m_connectedTo + " (" + h.ip + ")  ->  " +
             std::string(1, (char)dl) + ":");
-        setStatus(true, "Verbunden mit " + m_connectedTo);
+        setStatus(true, S().connectedToPrefix + m_connectedTo);
     } else {
         AppLog::get().add(LogEntry::Kind::Error,
-            "Verbindung fehlgeschlagen: " + h.ip);
-        setStatus(false, "SMB-Verbindung fehlgeschlagen.");
+            S().connectionFailed + h.ip);
+        setStatus(false, S().smbConnectionFailed);
     }
     m_cfg.save();
 }
@@ -244,12 +246,12 @@ void App::cmdDisconnect()
 {
     DriveMounter::unmount(m_cfg.driveLetter);
     AppLog::get().add(LogEntry::Kind::Disconnect,
-        "Getrennt von " + m_connectedTo);
+            S().disconnectedFrom + m_connectedTo);
     m_connected   = false;
     m_connectedTo.clear();
     m_cfg.clientEnabled = false;
     m_cfg.save();
-    setStatus(true, "Laufwerk getrennt.");
+    setStatus(true, S().driveDisconnected);
 }
 
 void App::cmdSaveSettings()
@@ -272,7 +274,7 @@ void App::cmdSaveSettings()
     }
     m_cfg.save();
 
-    setStatus(true, "Einstellungen gespeichert.");
+    setStatus(true, S().settingsSaved);
 }
 
 void App::cmdBrowseDriveIcon()

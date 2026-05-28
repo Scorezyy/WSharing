@@ -1,6 +1,7 @@
 #include "../App.h"
 #include <imgui.h>
 #include "../design/Colors.h"
+#include "../design/Strings.h"
 #include "../network/DriveMounter.h"
 
 void App::drawClientPage()
@@ -15,7 +16,7 @@ void App::drawClientPage()
 
     ImGui::SetCursorPosX(20.f);
     ImGui::PushStyleColor(ImGuiCol_Text, Colors::MUTED);
-    ImGui::Text("Mit einem freigegebenen Ordner verbinden");
+    ImGui::TextUnformatted(S().clientSubtitle.c_str());
     ImGui::PopStyleColor();
 
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 12.f);
@@ -27,7 +28,7 @@ void App::drawClientPage()
     ImGui::BeginChild("##clientcard", {fw, 0}, true, ImGuiWindowFlags_NoScrollbar);
 
     ImGui::PushStyleColor(ImGuiCol_Text, Colors::MUTED);
-    ImGui::Text("Gefundene Hosts (%d)", (int)hosts.size());
+    ImGui::Text(S().foundHosts.c_str(), (int)hosts.size());
     ImGui::PopStyleColor();
 
     ImGui::PushStyleColor(ImGuiCol_ChildBg, Colors::SURFACE2);
@@ -37,7 +38,7 @@ void App::drawClientPage()
     if (hosts.empty()) {
         ImGui::SetCursorPos({10.f, 55.f});
         ImGui::PushStyleColor(ImGuiCol_Text, Colors::MUTED);
-        ImGui::Text("Suche nach Hosts...");
+        ImGui::TextUnformatted(S().searchingHosts.c_str());
         ImGui::PopStyleColor();
     }
 
@@ -59,7 +60,7 @@ void App::drawClientPage()
     ImGui::PopStyleColor();
 
     ImGui::PushStyleColor(ImGuiCol_Text, Colors::MUTED);
-    ImGui::Text("Laufwerksbuchstabe");
+    ImGui::TextUnformatted(S().driveLetter.c_str());
     ImGui::PopStyleColor();
 
     {
@@ -90,7 +91,7 @@ void App::drawClientPage()
 
     ImGui::Spacing();
     ImGui::PushStyleColor(ImGuiCol_Text, Colors::MUTED);
-    ImGui::Text("Anzeigename im Explorer");
+    ImGui::TextUnformatted(S().displayName.c_str());
     ImGui::PopStyleColor();
     ImGui::SetNextItemWidth(fw - 32.f);
     ImGui::InputText("##drivename", m_driveNameBuf, sizeof(m_driveNameBuf));
@@ -100,19 +101,19 @@ void App::drawClientPage()
     if (m_connected) {
         ImGui::PushStyleColor(ImGuiCol_Button,        Colors::DANGER);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, {0.95f, 0.2f, 0.17f, 1.f});
-        if (ImGui::Button("  Trennen  ", {0, 36.f})) cmdDisconnect();
+        if (ImGui::Button(S().disconnect.c_str(), {0, 36.f})) cmdDisconnect();
         ImGui::PopStyleColor(2);
         ImGui::SameLine();
         ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 8.f);
         ImGui::PushStyleColor(ImGuiCol_Text, Colors::SUCCESS);
-        ImGui::Text("  Verbunden mit %s", m_connectedTo.c_str());
+        ImGui::Text(S().connectedTo.c_str(), m_connectedTo.c_str());
         ImGui::PopStyleColor();
     } else {
         bool can = (m_selHost >= 0 && m_selHost < (int)hosts.size());
         if (!can) ImGui::BeginDisabled();
         ImGui::PushStyleColor(ImGuiCol_Button,        Colors::ACCENT);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, {0.26f, 0.62f, 1.f, 1.f});
-        if (ImGui::Button("  Verbinden  ", {0, 36.f})) cmdConnect();
+        if (ImGui::Button(S().connect.c_str(), {0, 36.f})) cmdConnect();
         ImGui::PopStyleColor(2);
         if (!can) ImGui::EndDisabled();
     }

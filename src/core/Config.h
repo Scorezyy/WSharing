@@ -17,6 +17,7 @@ public:
     bool         autostart       { false };
     bool         startMinimized  { false };
     std::string  networkInterface;
+    int          language        { 0 }; // 0=DE 1=EN
 
     void load();
     void save() const;

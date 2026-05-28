@@ -13,6 +13,7 @@
 #include "core/Config.h"
 #include "core/TrayIcon.h"
 #include "core/Discovery.h"
+#include "core/Lang.h"
 #include "network/DriveMounter.h"
 #include "network/SmbProtocol.h"
 
@@ -62,6 +63,7 @@ private:
     void drawLogPage();
     void setStatus(bool ok, const std::string& msg);
     void drawStatusToast();
+    const Strings& S() const { return Lang::instance().current(); }
 
     // Commands
     void cmdStartHost();

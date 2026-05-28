@@ -1,6 +1,7 @@
 #include "../App.h"
 #include <imgui.h>
 #include "../design/Colors.h"
+#include "../design/Strings.h"
 #include "../core/AppLog.h"
 
 void App::drawLogPage()
@@ -15,18 +16,18 @@ void App::drawLogPage()
 
     ImGui::SetCursorPosX(20.f);
     ImGui::PushStyleColor(ImGuiCol_Text, Colors::MUTED);
-    ImGui::Text("Verbindungen und Dateioperationen");
+    ImGui::TextUnformatted(S().logSubtitle.c_str());
     ImGui::PopStyleColor();
 
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 8.f);
 
     // Toolbar row
     ImGui::SetCursorPosX(20.f);
-    ImGui::Checkbox("Auto-Scroll", &m_logAutoScroll);
+    ImGui::Checkbox(S().autoScroll.c_str(), &m_logAutoScroll);
     ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_Button,        Colors::SURFACE2);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Colors::BORDER);
-    if (ImGui::Button("Leeren##log")) AppLog::get().clear();
+    if (ImGui::Button(S().clearLog.c_str())) AppLog::get().clear();
     ImGui::PopStyleColor(2);
 
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 6.f);
@@ -44,7 +45,7 @@ void App::drawLogPage()
         ImGui::SetCursorPosY(ImGui::GetContentRegionAvail().y * 0.4f);
         ImGui::SetCursorPosX((ImGui::GetContentRegionAvail().x - 180.f) * 0.5f);
         ImGui::PushStyleColor(ImGuiCol_Text, Colors::MUTED);
-        ImGui::Text("Noch keine Ereignisse.");
+        ImGui::TextUnformatted(S().noEvents.c_str());
         ImGui::PopStyleColor();
     }
 

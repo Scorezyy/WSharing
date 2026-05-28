@@ -1,6 +1,8 @@
 ﻿#include "../App.h"
 #include <imgui.h>
 #include "../design/Colors.h"
+#include "../design/Strings.h"
+#include "../core/Lang.h"
 
 void App::drawSettingsPage()
 {
@@ -8,12 +10,12 @@ void App::drawSettingsPage()
 
     ImGui::SetCursorPosX(20.f);
     ImGui::PushStyleColor(ImGuiCol_Text, Colors::TEXT);
-    ImGui::Text("Einstellungen");
+    ImGui::TextUnformatted(S().settingsTitle.c_str());
     ImGui::PopStyleColor();
 
     ImGui::SetCursorPosX(20.f);
     ImGui::PushStyleColor(ImGuiCol_Text, Colors::MUTED);
-    ImGui::Text("Programm-Konfiguration");
+    ImGui::TextUnformatted(S().settingsSubtitle.c_str());
     ImGui::PopStyleColor();
 
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 12.f);
@@ -24,39 +26,62 @@ void App::drawSettingsPage()
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {16.f, 14.f});
     ImGui::BeginChild("##settcard", {fw, 0}, true, ImGuiWindowFlags_NoScrollbar);
 
+    ImGui::PushStyleColor(ImGuiCol_Text, Colors::MUTED);
+    ImGui::TextUnformatted(S().language.c_str());
+    ImGui::PopStyleColor();
+    int langIdx = m_cfg.language;
+    int langCount = Lang::instance().count();
+    const char* curName = (langIdx >= 0 && langIdx < langCount)
+        ? Lang::instance().nameAt(langIdx).c_str() : "";
+    ImGui::SetNextItemWidth(fw - 32.f);
+    if (ImGui::BeginCombo("##language", curName)) {
+        for (int i = 0; i < langCount; ++i) {
+            bool sel = (langIdx == i);
+            if (ImGui::Selectable(Lang::instance().nameAt(i).c_str(), sel)) {
+                m_cfg.language = i;
+                Lang::instance().load(i);
+                cmdSaveSettings();
+            }
+            if (sel) ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+    }
+
+    ImGui::Separator();
+
     bool autostart = m_cfg.autostart;
-    if (ImGui::Checkbox("Mit Windows starten", &autostart)) {
+    if (ImGui::Checkbox(S().startWithWindows.c_str(), &autostart)) {
         m_cfg.autostart = autostart;
         cmdSaveSettings();
     }
     ImGui::PushStyleColor(ImGuiCol_Text, Colors::MUTED);
-    ImGui::Text("WSharing beim Windows-Start automatisch oeffnen");
+    ImGui::TextUnformatted(S().startWithWindowsHint.c_str());
     ImGui::PopStyleColor();
 
     ImGui::Separator();
 
     bool minimized = m_cfg.startMinimized;
-    if (ImGui::Checkbox("Minimiert starten", &minimized)) {
+    if (ImGui::Checkbox(S().startMinimized.c_str(), &minimized)) {
         m_cfg.startMinimized = minimized;
         cmdSaveSettings();
     }
     ImGui::PushStyleColor(ImGuiCol_Text, Colors::MUTED);
-    ImGui::Text("Fenster beim Start in der Taskleiste verstecken");
+    ImGui::TextUnformatted(S().startMinimizedHint.c_str());
     ImGui::PopStyleColor();
 
     ImGui::Separator();
 
     ImGui::PushStyleColor(ImGuiCol_Text, Colors::MUTED);
-    ImGui::Text("Netzwerkadapter");
+    ImGui::TextUnformatted(S().networkAdapter.c_str());
     ImGui::PopStyleColor();
     ImGui::SetNextItemWidth(fw - 32.f);
 
     const char* curLabel = (m_selAdapter < 0)
-        ? "Automatisch (empfohlen)"
+        ? S().adapterAuto.c_str()
         : m_adapters[m_selAdapter].name.c_str();
 
     if (ImGui::BeginCombo("##adapter", curLabel)) {
-        if (ImGui::Selectable("Automatisch (empfohlen)", m_selAdapter < 0)) {
+        if (ImGui::Selectable(S().adapterAuto.c_str(), m_selAdapter < 0)) {
             m_selAdapter = -1;
             m_cfg.networkInterface.clear();
             cmdSaveSettings();
@@ -75,13 +100,13 @@ void App::drawSettingsPage()
         ImGui::EndCombo();
     }
     ImGui::PushStyleColor(ImGuiCol_Text, Colors::MUTED);
-    ImGui::Text("Adapter fuer Discovery und Host-Broadcast");
+    ImGui::TextUnformatted(S().adapterHint.c_str());
     ImGui::PopStyleColor();
 
     ImGui::Separator();
 
     ImGui::PushStyleColor(ImGuiCol_Text, Colors::MUTED);
-    ImGui::Text("Laufwerk-Icon (.ico)");
+    ImGui::TextUnformatted(S().driveIcon.c_str());
     ImGui::PopStyleColor();
     float iconFieldW = fw - 32.f - 90.f - 8.f;
     ImGui::SetNextItemWidth(iconFieldW);
@@ -93,10 +118,10 @@ void App::drawSettingsPage()
     ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_Button,        Colors::SURFACE2);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Colors::BORDER);
-    if (ImGui::Button("Suchen...##iconbrowse", {90.f, 0})) cmdBrowseDriveIcon();
+    if (ImGui::Button(S().browse.c_str(), {90.f, 0})) cmdBrowseDriveIcon();
     ImGui::PopStyleColor(2);
     ImGui::PushStyleColor(ImGuiCol_Text, Colors::MUTED);
-    ImGui::Text("Icon fuer das Laufwerk im Explorer (leer = Standard)");
+    ImGui::TextUnformatted(S().driveIconHint.c_str());
     ImGui::PopStyleColor();
 
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 6.f);
@@ -104,4 +129,3 @@ void App::drawSettingsPage()
     ImGui::PopStyleVar(2);
     ImGui::PopStyleColor();
 }
-

@@ -68,6 +68,7 @@ void Config::load()
     autostart         = ini_bool(m, "autostart",         false);
     startMinimized    = ini_bool(m, "startMinimized",    false);
     networkInterface  = ini_str (m, "networkInterface");
+    language          = ini_int (m, "language", 0);
 }
 
 void Config::save() const
@@ -83,5 +84,6 @@ void Config::save() const
          << "driveIconPath="  << wide_to_utf8(driveIconPath) << "\n"
          << "autostart="         << (autostart      ? 1 : 0) << "\n"
          << "startMinimized="    << (startMinimized ? 1 : 0) << "\n"
-         << "networkInterface="  << networkInterface          << "\n";
+         << "networkInterface="  << networkInterface          << "\n"
+         << "language="          << language                  << "\n";
 }

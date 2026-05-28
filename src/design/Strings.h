@@ -1,0 +1,57 @@
+﻿#pragma once
+#include <string>
+
+struct Strings
+{
+    std::string langName;
+    std::string hostingActive;
+    std::string notHosting;
+    std::string navHost;
+    std::string navClient;
+    std::string navSettings;
+    std::string navLog;
+    std::string hostSubtitle;
+    std::string folder;
+    std::string browse;
+    std::string shareName;
+    std::string startSharing;
+    std::string stopSharing;
+    std::string sharingActive;
+    std::string clientSubtitle;
+    std::string foundHosts;
+    std::string searchingHosts;
+    std::string driveLetter;
+    std::string displayName;
+    std::string connect;
+    std::string disconnect;
+    std::string connectedTo;
+    std::string settingsTitle;
+    std::string settingsSubtitle;
+    std::string startWithWindows;
+    std::string startWithWindowsHint;
+    std::string startMinimized;
+    std::string startMinimizedHint;
+    std::string networkAdapter;
+    std::string adapterAuto;
+    std::string adapterHint;
+    std::string driveIcon;
+    std::string driveIconHint;
+    std::string language;
+    std::string settingsSaved;
+    std::string logSubtitle;
+    std::string autoScroll;
+    std::string clearLog;
+    std::string noEvents;
+    std::string selectFolderFirst;
+    std::string settingUpShare;
+    std::string hostStarted;
+    std::string hostStartFailed;
+    std::string shareStartFailed;
+    std::string hostStopped;
+    std::string shareStopped;
+    std::string connectedToPrefix;
+    std::string connectionFailed;
+    std::string smbConnectionFailed;
+    std::string disconnectedFrom;
+    std::string driveDisconnected;
+};
