@@ -82,10 +82,12 @@ src/
 │   ├── AppLog.h                  # Thread-safe in-app log
 │   ├── Config.cpp/h              # Persistent settings (INI)
 │   ├── Discovery.cpp/h           # UDP host broadcasting & discovery
+│   ├── Lang.cpp/h                # Language loader (AppData JSON files)
 │   ├── StringUtils.h             # UTF-8 / wide string helpers
 │   └── TrayIcon.cpp/h            # System tray integration
 ├── design/
-│   └── Colors.h                  # ImGui color palette
+│   ├── Colors.h                  # ImGui color palette
+│   └── Strings.h                 # Localized string struct
 ├── network/
 │   ├── DriveMounter.cpp/h        # SMB drive mount/unmount via WNetAddConnection2
 │   └── SmbProtocol.cpp/h         # NetShareAdd/Del, user setup, perf tweaks
@@ -98,6 +100,9 @@ src/
 │   └── Toast.cpp
 ├── window/
 │   └── DX11Window.cpp            # Win32 window + DirectX 11 swap chain
+├── lang.rc                       # Embeds language JSONs as RCDATA resources
+├── version.rc                    # File version info
+├── WSharing.manifest             # requireAdministrator UAC manifest
 ├── App.cpp/h                     # Application entry & orchestration
 └── main.cpp
 ```
