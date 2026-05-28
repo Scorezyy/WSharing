@@ -67,17 +67,29 @@ The share mounts as a standard Windows network drive and opens in Explorer.
 ```
 src/
 ├── core/
-│   ├── webdav/          # WebDAV server (HTTP parsing, request handlers)
-│   ├── AppLog.h         # Thread-safe in-app log
-│   ├── Config.cpp/h     # Persistent settings (JSON)
-│   ├── Discovery.cpp/h  # UDP host broadcasting & discovery
-│   ├── StringUtils.h    # UTF-8 / wide string helpers
-│   └── TrayIcon.cpp/h   # System tray integration
+│   ├── webdav/
+│   │   ├── WebDavHandlers.cpp/h  # Request handlers (GET, PUT, PROPFIND, ...)
+│   │   ├── WebDavHttp.h          # HTTP parsing, URL codec, send helpers
+│   │   ├── WebDavServer.cpp/h    # TCP accept loop, connection dispatch
+│   ├── AppLog.h                  # Thread-safe in-app log
+│   ├── Config.cpp/h              # Persistent settings
+│   ├── Discovery.cpp/h           # UDP host broadcasting & discovery
+│   ├── StringUtils.h             # UTF-8 / wide string helpers
+│   └── TrayIcon.cpp/h            # System tray integration
+├── design/
+│   └── Colors.h                  # ImGui color palette
 ├── network/
-│   └── DriveMounter.cpp/h  # WebDAV drive mount/unmount via WNetAddConnection2
-├── ui/                  # ImGui page renderers
-├── window/              # Win32 window + DX11 swap chain
-├── App.cpp/h            # Application entry & orchestration
+│   └── DriveMounter.cpp/h        # Drive mount/unmount via WNetAddConnection2
+├── ui/
+│   ├── ClientPage.cpp            # Client tab UI
+│   ├── HostPage.cpp              # Host tab UI
+│   ├── LogPage.cpp               # Log tab UI
+│   ├── SettingsPage.cpp          # Settings tab UI
+│   ├── Sidebar.cpp               # Navigation sidebar
+│   └── Toast.cpp                 # Status toast notifications
+├── window/
+│   └── DX11Window.cpp            # Win32 window + DirectX 11 swap chain
+├── App.cpp/h                     # Application entry & orchestration
 └── main.cpp
 ```
 
