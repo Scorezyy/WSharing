@@ -1,0 +1,27 @@
+#pragma once
+#include <string>
+#include <cstdint>
+
+class Config
+{
+public:
+    bool         hostEnabled   { false };
+    std::wstring sharedFolder;
+    uint16_t     hostPort      { 45679 };
+    std::wstring shareName     { L"WSharing" };
+
+    bool         clientEnabled  { false };
+    wchar_t      driveLetter    { L'Z' };
+    std::wstring customDriveName { L"WSharing" };
+    std::wstring driveIconPath;
+
+    bool         autostart       { false };
+    bool         startMinimized  { false };
+    std::string  networkInterface;
+
+    void load();
+    void save() const;
+
+private:
+    static std::wstring configFilePath();
+};
