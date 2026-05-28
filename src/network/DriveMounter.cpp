@@ -23,11 +23,13 @@ static void setRegistryDword(HKEY hive, const wchar_t* subkey,
 
 static bool ensureServiceRunning(const wchar_t* serviceName)
 {
-    SC_HANDLE scm = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CONNECT);
+    SC_HANDLE scm = OpenSCManagerW(nullptr, nullptr,
+                                   SC_MANAGER_CONNECT | SC_MANAGER_ENUMERATE_SERVICE);
     if (!scm) return false;
 
     SC_HANDLE svc = OpenServiceW(scm, serviceName,
-                                  SERVICE_QUERY_STATUS | SERVICE_START);
+                                  SERVICE_QUERY_STATUS | SERVICE_START |
+                                  SERVICE_STOP | SERVICE_CHANGE_CONFIG);
     if (!svc) { CloseServiceHandle(scm); return false; }
 
     SERVICE_STATUS_PROCESS ssp{};
@@ -35,15 +37,25 @@ static bool ensureServiceRunning(const wchar_t* serviceName)
     QueryServiceStatusEx(svc, SC_STATUS_PROCESS_INFO,
                          reinterpret_cast<LPBYTE>(&ssp), sizeof(ssp), &needed);
 
-    bool started = (ssp.dwCurrentState == SERVICE_RUNNING);
-    if (!started) {
-        StartServiceW(svc, 0, nullptr);
-        for (int i = 0; i < 50 && !started; ++i) {
+    // If already running, restart so registry changes (FileSizeLimitInBytes) take effect
+    if (ssp.dwCurrentState == SERVICE_RUNNING) {
+        ControlService(svc, SERVICE_CONTROL_STOP,
+                       reinterpret_cast<SERVICE_STATUS*>(&ssp));
+        for (int i = 0; i < 50; ++i) {
             Sleep(100);
             QueryServiceStatusEx(svc, SC_STATUS_PROCESS_INFO,
                                  reinterpret_cast<LPBYTE>(&ssp), sizeof(ssp), &needed);
-            started = (ssp.dwCurrentState == SERVICE_RUNNING);
+            if (ssp.dwCurrentState == SERVICE_STOPPED) break;
         }
+    }
+
+    StartServiceW(svc, 0, nullptr);
+    bool started = false;
+    for (int i = 0; i < 50 && !started; ++i) {
+        Sleep(100);
+        QueryServiceStatusEx(svc, SC_STATUS_PROCESS_INFO,
+                             reinterpret_cast<LPBYTE>(&ssp), sizeof(ssp), &needed);
+        started = (ssp.dwCurrentState == SERVICE_RUNNING);
     }
 
     CloseServiceHandle(svc);
