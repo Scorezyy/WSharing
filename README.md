@@ -106,4 +106,4 @@ src/
 
 ## License
 
-MIT
+WSharing Custom License — see [LICENSE](LICENSE)
